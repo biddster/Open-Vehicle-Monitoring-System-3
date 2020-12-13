@@ -1,25 +1,26 @@
 /**
- *       /store/scripts/sendlivedata2abrp.js
+ *       /store/scripts/abrp2.js
  *
  * Module plugin:
  *  Send live data to a better route planner
  *  This version uses the embedded GSM of OVMS, so there's an impact on data consumption
  *  /!\ requires OVMS firmware version 3.2.008-147 minimum (for HTTP call)
  *
- * Version 1.3   2020   inf0mike (forum https://www.openvehicles.com)
+ * Version 2.0   2020    @biddster
  *
  * Enable:
  *  - install at above path
  *  - add to /store/scripts/ovmsmain.js:
- *                 abrp = require("sendlivedata2arbp");
+ *                 abrp = require('abrp2');
  *  - script reload
  *
  * Usage:
- *  - script eval abrp.info()         => to display vehicle data to be sent to abrp
- *  - script eval abrp.onetime()      => to launch one time the request to abrp server
- *  - script eval abrp.send(1)        => toggle send data to abrp
- *  -                      (0)        => stop sending data
- *  - script eval abrp.resetConfig()  => reset configuration to defaults
+ *  - script eval abrp.showTelemetry()      => to display vehicle data to be sent to abrp
+ *  - script eval abrp.sendTelemetry(true)  => send telemetry to ABRP. Argument is boolean, true to force the data to be send, even if unchanged.
+ *  - script eval abrp.startRoute()         => Start sending telemetry to ABRP every 60 seconds
+ *  - script eval abrp.endRoute()           => Cease sending telemetry to ABRP
+ *  - script eval abrp.enableSendBetweenVehicleOnAndOff()  => Automatically start sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
+ *  - script eval abrp.disableSendBetweenVehicleOnAndOff()  => Disable automatically sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
  *
  * Version 1.3 updates:
  *  - Fix for rounding of fractional SOC causing abrp to report SOC off by 1
@@ -63,6 +64,11 @@ var tickerSubscription = null;
 var currentTelemetry = null;
 var config = null;
 
+const handleError = function (error, context) {
+    print('ABRP::' + context + ' error [' + JSON.stringify(error) + ']\n');
+    OvmsNotify.Raise('error', 'usr.abrp.status', context + ' error  - ' + error.message);
+};
+
 const loadConfig = function () {
     const values = OvmsConfig.GetValues('usr', 'abrp.');
     if (!config) {
@@ -75,7 +81,7 @@ const loadConfig = function () {
     }
 };
 
-const send = function (telemetry) {
+const updateAbrp = function (telemetry) {
     // Taken from original sendlivedata2abrp.js
     const url =
         config.url +
@@ -94,8 +100,7 @@ const send = function (telemetry) {
             print('ABRP::HTTP response code [' + resp.statusCode + ']\n');
         },
         fail: function (error) {
-            print('ABRP::HTTP request error [' + JSON.stringify(error) + ']\n');
-            OvmsNotify.Raise('error', 'usr.abrp.status', JSON.stringify(error));
+            handleError(error, 'HTTP request');
         },
     });
 };
@@ -162,64 +167,51 @@ const sendTelemetry = function (forceUpdate) {
             telemetryIsValidAndHasChanged(currentTelemetry, telemetry)
         ) {
             currentTelemetry = telemetry;
-            send(currentTelemetry);
+            updateAbrp(currentTelemetry);
         }
     } catch (error) {
-        print('ABRP::Send telemetry error [' + JSON.stringify(error) + ']\n');
-        OvmsNotify.Raise(
-            'error',
-            'usr.abrp.status',
-            'telemetry error - ' + JSON.stringify(error)
-        );
+        handleError(error, 'Send telemetry');
     }
 };
 
 const onTicker = function () {
-    sendTelemetry();
+    sendTelemetry(false);
 };
 
-const vehicleOn = function () {
+const startRoute = function () {
     try {
         currentTelemetry = null;
         config = null;
-        send('Vehicle turned on');
         tickerSubscription = PubSub.subscribe(topics.Ticker, onTicker);
-        print('ABRP::Vehicle turned on - subscribed to interval topic\n');
+        print('ABRP::Starting route - subscribed to interval topic\n');
+        OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route started');
     } catch (error) {
-        print('ABRP::vehicle on error [' + JSON.stringify(error) + ']\n');
-        OvmsNotify.Raise(
-            'error',
-            'usr.abrp.status',
-            'vehicle on error - ' + JSON.stringify(error)
-        );
+        handleError(error, 'Start route');
     }
 };
 
-const vehicleOff = function () {
+const endRoute = function () {
     try {
         currentTelemetry = null;
         config = null;
-        send('Vehicle turned off');
-        PubSub.unsubscribe(tickerSubscription);
-        tickerSubscription = null;
-        print('ABRP::Vehicle turned off - unsubscribed from interval topic\n');
+        if (tickerSubscription) {
+            PubSub.unsubscribe(tickerSubscription);
+            tickerSubscription = null;
+        }
+        print('ABRP::Ending route - unsubscribed from interval topic\n');
+        OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route ended');
     } catch (error) {
-        print('ABRP::vehicle off error [' + JSON.stringify(error) + ']\n');
-        OvmsNotify.Raise(
-            'error',
-            'usr.abrp.status',
-            'vehicle off error - ' + JSON.stringify(error)
-        );
+        handleError(error, 'End route');
     }
 };
 
 const enableSendBetweenVehicleOnAndOff = function () {
     if (!vehicleOnSubscription) {
-        vehicleOnSubscription = PubSub.subscribe(topics.VehicleOn, vehicleOn);
+        vehicleOnSubscription = PubSub.subscribe(topics.VehicleOn, startRoute);
         print('ABRP::Vehicle on subscribed to\n');
     }
     if (!vehicleOffSubscription) {
-        vehicleOffSubscription = PubSub.subscribe(topics.VehicleOff, vehicleOff);
+        vehicleOffSubscription = PubSub.subscribe(topics.VehicleOff, endRoute);
         print('ABRP::Vehicle off subscribed to\n');
     }
     print('ABRP::Vehicle on and off topics subscribed\n');
@@ -237,9 +229,14 @@ const disableSendBetweenVehicleOnAndOff = function () {
     print('ABRP::Vehicle on and off topics unsubscribed\n');
 };
 
+const showTelemetry = function () {
+    print(JSON.stringify(captureTelemetry(), null, 4));
+};
+
 exports.loadConfig = loadConfig;
-exports.vehicleOn = vehicleOn;
-exports.vehicleOff = vehicleOff;
+exports.startRoute = startRoute;
+exports.endRoute = endRoute;
 exports.enableSendBetweenVehicleOnAndOff = enableSendBetweenVehicleOnAndOff;
 exports.disableSendBetweenVehicleOnAndOff = disableSendBetweenVehicleOnAndOff;
 exports.sendTelemetry = sendTelemetry;
+exports.showTelemetry = showTelemetry;
