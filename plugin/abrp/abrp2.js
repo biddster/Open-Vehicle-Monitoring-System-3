@@ -18,7 +18,7 @@
  *
  * Usage:
  *  - script eval abrp.showTelemetry()      => to display vehicle data to be sent to abrp
- *  - script eval abrp.sendTelemetry(true)  => send telemetry to ABRP. Argument is boolean, true to force the data to be send, even if unchanged.
+ *  - script eval abrp.sendTelemetry(true)  => send telemetry to ABRP. Argument is boolean, true to force the data to be sent, even if unchanged.
  *  - script eval abrp.startRoute()         => Start sending telemetry to ABRP every 60 seconds
  *  - script eval abrp.endRoute()           => Cease sending telemetry to ABRP
  *  - script eval abrp.enableSendBetweenVehicleOnAndOff()  => Automatically start sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
@@ -103,7 +103,7 @@ const updateAbrp = function (telemetry) {
     });
 };
 
-const captureTelemetry = function () {
+const getTelemetry = function () {
     const state = OvmsMetrics.Value('v.c.state');
     const isCharging = state === 'charging' || state === 'topoff' ? 1 : 0;
 
@@ -125,7 +125,7 @@ const captureTelemetry = function () {
     };
 };
 
-const telemetryIsValidAndHasChanged = function (previous, next) {
+const isTelemetryValidAndHasChanged = function (previous, next) {
     if (next.soh + next.soc === 0) {
         // Taken from original sendlivedata2abrp.js
         // Sometimes the canbus is not readable, and abrp doesn't like 0 values
@@ -158,11 +158,11 @@ const sendTelemetry = function (forceUpdate) {
     try {
         loadConfig();
         print('ABRP::Sending telemetry\n');
-        const telemetry = captureTelemetry();
+        const telemetry = getTelemetry();
         if (
             !currentTelemetry ||
             forceUpdate ||
-            telemetryIsValidAndHasChanged(currentTelemetry, telemetry)
+            isTelemetryValidAndHasChanged(currentTelemetry, telemetry)
         ) {
             currentTelemetry = telemetry;
             updateAbrp(currentTelemetry);
@@ -178,8 +178,8 @@ const onTicker = function () {
 
 const startRoute = function () {
     try {
-        currentTelemetry = null;
         unloadConfig();
+        sendTelemetry(true);
         tickerSubscription = PubSub.subscribe(topics.Ticker, onTicker);
         print('ABRP::Starting route - subscribed to ticker\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route started');
@@ -190,8 +190,8 @@ const startRoute = function () {
 
 const endRoute = function () {
     try {
-        currentTelemetry = null;
         unloadConfig();
+        currentTelemetry = null;
         if (tickerSubscription) {
             PubSub.unsubscribe(tickerSubscription);
             tickerSubscription = null;
@@ -229,7 +229,7 @@ const disableSendBetweenVehicleOnAndOff = function () {
 
 const showTelemetry = function () {
     loadConfig();
-    print(JSON.stringify(captureTelemetry(), null, 4));
+    print(JSON.stringify(getTelemetry(), null, 4));
 };
 
 exports.loadConfig = loadConfig;
@@ -240,3 +240,5 @@ exports.enableSendBetweenVehicleOnAndOff = enableSendBetweenVehicleOnAndOff;
 exports.disableSendBetweenVehicleOnAndOff = disableSendBetweenVehicleOnAndOff;
 exports.sendTelemetry = sendTelemetry;
 exports.showTelemetry = showTelemetry;
+
+print('ABRP::module loaded');
