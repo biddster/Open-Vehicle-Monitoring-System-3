@@ -79,6 +79,10 @@ const unloadConfig = function () {
     config = null;
 };
 
+const resetConfig = function () {
+    OvmsConfig.Delete('usr', 'abrp');
+};
+
 const updateAbrp = function (telemetry) {
     // Taken from original sendlivedata2abrp.js
     const url =
@@ -234,6 +238,7 @@ const showTelemetry = function () {
 
 exports.loadConfig = loadConfig;
 exports.unloadConfig = unloadConfig;
+exports.resetConfig = resetConfig;
 exports.startRoute = startRoute;
 exports.endRoute = endRoute;
 exports.enableSendBetweenVehicleOnAndOff = enableSendBetweenVehicleOnAndOff;
