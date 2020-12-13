@@ -81,6 +81,11 @@ const loadConfig = function () {
     }
 };
 
+const resetConfig = function () {
+    // TODO fix this like version 1.x
+    config = null;
+};
+
 const updateAbrp = function (telemetry) {
     // Taken from original sendlivedata2abrp.js
     const url =
@@ -114,7 +119,7 @@ const captureTelemetry = function () {
         soc: Math.floor(Number(OvmsMetrics.Value('v.b.soc'))),
         soh: Number(OvmsMetrics.Value('v.b.soh')),
         speed: Number(OvmsMetrics.Value('v.p.speed')),
-        car_model: 'fixme leaf',
+        car_model: config.carModel,
         lat: OvmsMetrics.AsFloat('v.p.latitude').toFixed(3),
         lon: Number(OvmsMetrics.AsFloat('v.p.longitude')).toFixed(3),
         alt: Number(OvmsMetrics.AsFloat('v.p.altitude')).toFixed(1),
@@ -181,7 +186,7 @@ const onTicker = function () {
 const startRoute = function () {
     try {
         currentTelemetry = null;
-        config = null;
+        resetConfig();
         tickerSubscription = PubSub.subscribe(topics.Ticker, onTicker);
         print('ABRP::Starting route - subscribed to interval topic\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route started');
@@ -193,7 +198,7 @@ const startRoute = function () {
 const endRoute = function () {
     try {
         currentTelemetry = null;
-        config = null;
+        resetConfig();
         if (tickerSubscription) {
             PubSub.unsubscribe(tickerSubscription);
             tickerSubscription = null;
@@ -230,10 +235,12 @@ const disableSendBetweenVehicleOnAndOff = function () {
 };
 
 const showTelemetry = function () {
+    loadConfig();
     print(JSON.stringify(captureTelemetry(), null, 4));
 };
 
 exports.loadConfig = loadConfig;
+exports.resetConfig = resetConfig;
 exports.startRoute = startRoute;
 exports.endRoute = endRoute;
 exports.enableSendBetweenVehicleOnAndOff = enableSendBetweenVehicleOnAndOff;
