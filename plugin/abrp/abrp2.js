@@ -8,6 +8,8 @@
  *
  * Version 2.0   2020    @biddster
  *
+ *      TODO - too many side effects in this code. E.g. have to load config before calling captureTelemetry. Need partials and some FP.
+ *
  * Enable:
  *  - install at above path
  *  - add to /store/scripts/ovmsmain.js:
@@ -38,24 +40,18 @@
  *  - send live data only if necessary
  **/
 
-/*
- * Declarations:
- *   CAR_MODEL: find your car model here: https://api.iternio.com/1/tlm/get_carmodels_list?api_key=32b2162f-9599-4647-8139-66e9f9528370
- *   OVMS_API_KEY : API_KEY to access to ABRP API, given by the developer
- *   MY_TOKEN : Your token (corresponding to your abrp profile)
- *   TIMER_INTERVAL : to subscribe to a ticker event
- *   URL : url to send telemetry to abrp following: https://iternio.com/index.php/iternio-telemetry-api/
- *   CR : Carriage Return for console prints
- *
- *   objTLM : JSON object containing data read
- *   objTimer : timer object
- */
 const OVMS_API_KEY = '32b2162f-9599-4647-8139-66e9f9528370';
 
 const topics = Object.freeze({
     VehicleOn: 'vehicle.on',
     VehicleOff: 'vehicle.off',
     Ticker: 'ticker.60',
+});
+
+const defaultConfig = Object.freeze({
+    url: 'http://api.iternio.com/1/tlm/send',
+    car_model: '@@:@@:@@:@@:@@',
+    user_token: '@@@@@@@@-@@@@-@@@@-@@@@-@@@@@@@@@@@@',
 });
 
 var vehicleOnSubscription = null;
@@ -70,19 +66,16 @@ const handleError = function (error, context) {
 };
 
 const loadConfig = function () {
-    const values = OvmsConfig.GetValues('usr', 'abrp.');
     if (!config) {
-        config = Object.freeze({
-            url: values.url,
-            userToken: values.user_token,
-            carModel: values.car_model,
-        });
+        config = Object.freeze(
+            Object.assign({}, defaultConfig, OvmsConfig.GetValues('usr', 'abrp.'))
+        );
         print('ABRP::config [' + JSON.stringify(config) + ']\n');
     }
 };
 
-const resetConfig = function () {
-    // TODO fix this like version 1.x
+const unloadConfig = function () {
+    // TODO fix this like version 1.x?
     config = null;
 };
 
@@ -93,7 +86,7 @@ const updateAbrp = function (telemetry) {
         '?api_key=' +
         OVMS_API_KEY +
         '&token=' +
-        config.userToken +
+        config.user_token +
         '&tlm=' +
         encodeURIComponent(JSON.stringify(telemetry));
 
@@ -119,7 +112,7 @@ const captureTelemetry = function () {
         soc: Math.floor(Number(OvmsMetrics.Value('v.b.soc'))),
         soh: Number(OvmsMetrics.Value('v.b.soh')),
         speed: Number(OvmsMetrics.Value('v.p.speed')),
-        car_model: config.carModel,
+        car_model: config.car_model,
         lat: OvmsMetrics.AsFloat('v.p.latitude').toFixed(3),
         lon: Number(OvmsMetrics.AsFloat('v.p.longitude')).toFixed(3),
         alt: Number(OvmsMetrics.AsFloat('v.p.altitude')).toFixed(1),
@@ -186,9 +179,9 @@ const onTicker = function () {
 const startRoute = function () {
     try {
         currentTelemetry = null;
-        resetConfig();
+        unloadConfig();
         tickerSubscription = PubSub.subscribe(topics.Ticker, onTicker);
-        print('ABRP::Starting route - subscribed to interval topic\n');
+        print('ABRP::Starting route - subscribed to ticker\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route started');
     } catch (error) {
         handleError(error, 'Start route');
@@ -198,12 +191,12 @@ const startRoute = function () {
 const endRoute = function () {
     try {
         currentTelemetry = null;
-        resetConfig();
+        unloadConfig();
         if (tickerSubscription) {
             PubSub.unsubscribe(tickerSubscription);
             tickerSubscription = null;
         }
-        print('ABRP::Ending route - unsubscribed from interval topic\n');
+        print('ABRP::Ending route - unsubscribed from ticker\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route ended');
     } catch (error) {
         handleError(error, 'End route');
@@ -240,7 +233,7 @@ const showTelemetry = function () {
 };
 
 exports.loadConfig = loadConfig;
-exports.resetConfig = resetConfig;
+exports.unloadConfig = unloadConfig;
 exports.startRoute = startRoute;
 exports.endRoute = endRoute;
 exports.enableSendBetweenVehicleOnAndOff = enableSendBetweenVehicleOnAndOff;
