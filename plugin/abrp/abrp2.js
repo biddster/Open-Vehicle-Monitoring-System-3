@@ -8,7 +8,7 @@
  *
  * Version 2.0   2020    @biddster
  *
- *      TODO - too many side effects in this code. E.g. have to load config before calling captureTelemetry. Need partials and some FP.
+ *      TODO - too many side effects in this code. E.g. have to load config before calling getTelemetry. Need partials and some FP.
  *
  * Enable:
  *  - install at above path
@@ -142,15 +142,7 @@ const isTelemetryValidAndHasChanged = function (previous, next) {
     for (var i = 0; i < keys.length; ++i) {
         const key = keys[i];
         if (previous[key] != next[key]) {
-            print(
-                'Telemetry [' +
-                    key +
-                    '] has changed from [' +
-                    previous[key] +
-                    '] to [' +
-                    next[key] +
-                    ']\n'
-            );
+            print('ABRP::Telemetry [' + key + '] has changed\n');
             return true;
         }
     }
@@ -184,7 +176,9 @@ const startRoute = function () {
     try {
         unloadConfig();
         sendTelemetry(true);
-        tickerSubscription = PubSub.subscribe(topics.Ticker, onTicker);
+        if (!tickerSubscription) {
+            tickerSubscription = PubSub.subscribe(topics.Ticker, onTicker);
+        }
         print('ABRP::Starting route - subscribed to ticker\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route started');
     } catch (error) {
