@@ -48,17 +48,28 @@ const topics = Object.freeze({
     Ticker: 'ticker.60',
 });
 
-const defaultConfig = Object.freeze({
+const defaultConfiguration = Object.freeze({
     url: 'http://api.iternio.com/1/tlm/send',
     car_model: '@@:@@:@@:@@:@@',
     user_token: '@@@@@@@@-@@@@-@@@@-@@@@-@@@@@@@@@@@@',
 });
 
+const telemetryChangedIndicators = Object.freeze([
+    'soc',
+    'soh',
+    'lat',
+    'lon',
+    'alt',
+    'is_charging',
+    'batt_temp',
+    'ext_temp',
+]);
+
 var vehicleOnSubscription = null;
 var vehicleOffSubscription = null;
 var tickerSubscription = null;
 var currentTelemetry = null;
-var config = null;
+var configuration = null;
 
 const handleError = function (error, context) {
     print('ABRP::' + context + ' error [' + JSON.stringify(error) + ']\n');
@@ -66,17 +77,18 @@ const handleError = function (error, context) {
 };
 
 const loadConfig = function () {
-    if (!config) {
-        config = Object.freeze(
-            Object.assign({}, defaultConfig, OvmsConfig.GetValues('usr', 'abrp.'))
+    if (!configuration) {
+        configuration = Object.freeze(
+            Object.assign({}, defaultConfiguration, OvmsConfig.GetValues('usr', 'abrp.'))
         );
-        print('ABRP::config [' + JSON.stringify(config) + ']\n');
+        print('ABRP::config [' + JSON.stringify(configuration) + ']\n');
     }
+    return configuration;
 };
 
 const unloadConfig = function () {
     // TODO fix this like version 1.x?
-    config = null;
+    configuration = null;
 };
 
 const resetConfig = function () {
@@ -84,6 +96,7 @@ const resetConfig = function () {
 };
 
 const updateAbrp = function (telemetry) {
+    const config = loadConfig();
     // Taken from original sendlivedata2abrp.js
     const url =
         config.url +
@@ -108,6 +121,7 @@ const updateAbrp = function (telemetry) {
 };
 
 const getTelemetry = function () {
+    const config = loadConfig();
     const state = OvmsMetrics.Value('v.c.state');
     const isCharging = state === 'charging' || state === 'topoff' ? 1 : 0;
 
@@ -138,9 +152,9 @@ const isTelemetryValidAndHasChanged = function (previous, next) {
         );
         return false;
     }
-    const keys = ['soc', 'soh', 'lat', 'lon', 'alt', 'is_charging', 'batt_temp', 'ext_temp'];
-    for (var i = 0; i < keys.length; ++i) {
-        const key = keys[i];
+
+    for (var i = 0; i < telemetryChangedIndicators.length; ++i) {
+        const key = telemetryChangedIndicators[i];
         if (previous[key] != next[key]) {
             print('ABRP::Telemetry [' + key + '] has changed\n');
             return true;
@@ -152,8 +166,6 @@ const isTelemetryValidAndHasChanged = function (previous, next) {
 
 const sendTelemetry = function (forceUpdate) {
     try {
-        loadConfig();
-        print('ABRP::Sending telemetry\n');
         const telemetry = getTelemetry();
         if (
             !currentTelemetry ||
@@ -226,7 +238,6 @@ const disableSendBetweenVehicleOnAndOff = function () {
 };
 
 const showTelemetry = function () {
-    loadConfig();
     print(JSON.stringify(getTelemetry(), null, 4));
 };
 
