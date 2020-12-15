@@ -17,12 +17,12 @@
  *  - script reload
  *
  * Usage:
- *  - script eval abrp.showTelemetry()      => to display vehicle data to be sent to abrp
- *  - script eval abrp.sendTelemetry(true)  => send telemetry to ABRP. Argument is boolean, true to force the data to be sent, even if unchanged.
- *  - script eval abrp.startRoute()         => Start sending telemetry to ABRP every 60 seconds
- *  - script eval abrp.endRoute()           => Cease sending telemetry to ABRP
- *  - script eval abrp.enableSendBetweenVehicleOnAndOff()  => Automatically start sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
- *  - script eval abrp.disableSendBetweenVehicleOnAndOff()  => Disable automatically sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
+ *  - script eval abrp.info()              => to display plugin config and vehicle data to be sent to abrp
+ *  - script eval abrp.sendTelemetry(true) => send telemetry to ABRP. Argument is boolean, true to force the data to be sent, even if unchanged.
+ *  - script eval abrp.startRoute()        => Start sending telemetry to ABRP every 60 seconds
+ *  - script eval abrp.endRoute()          => Cease sending telemetry to ABRP
+ *  - script eval abrp.enableAutoRoute()   => Automatically start sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
+ *  - script eval abrp.disableAutoRoute()  => Disable automatically sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
  *
  * Version 1.3 updates:
  *  - Fix for rounding of fractional SOC causing abrp to report SOC off by 1
@@ -81,7 +81,7 @@ const loadConfig = function () {
         configuration = Object.freeze(
             Object.assign({}, defaultConfiguration, OvmsConfig.GetValues('usr', 'abrp.'))
         );
-        print('ABRP::config [' + JSON.stringify(configuration) + ']\n');
+        print('ABRP::config ' + JSON.stringify(configuration, null, 4) + '\n');
     }
     return configuration;
 };
@@ -153,23 +153,20 @@ const isTelemetryValidAndHasChanged = function (previous, next) {
         return false;
     }
 
-    for (var i = 0; i < telemetryChangedIndicators.length; ++i) {
-        const key = telemetryChangedIndicators[i];
-        if (previous[key] != next[key]) {
-            print('ABRP::Telemetry [' + key + '] has changed\n');
-            return true;
-        }
-    }
-    print('ABRP::Telemetry not changed');
-    return false;
+    const changed = telemetryChangedIndicators.reduce(function (accumulator, key) {
+        return accumulator || previous[key] != next[key];
+    }, false);
+
+    print('ABRP::Telemetry changed [' + changed + ']\n');
+    return changed;
 };
 
-const sendTelemetry = function (forceUpdate) {
+const sendTelemetry = function (forceAbrpUpdate) {
     try {
         const telemetry = getTelemetry();
         if (
             !currentTelemetry ||
-            forceUpdate ||
+            forceAbrpUpdate ||
             isTelemetryValidAndHasChanged(currentTelemetry, telemetry)
         ) {
             currentTelemetry = telemetry;
@@ -213,7 +210,7 @@ const endRoute = function () {
     }
 };
 
-const enableSendBetweenVehicleOnAndOff = function () {
+const enableAutoRoute = function () {
     if (!vehicleOnSubscription) {
         vehicleOnSubscription = PubSub.subscribe(topics.VehicleOn, startRoute);
         print('ABRP::Vehicle on subscribed to\n');
@@ -225,7 +222,7 @@ const enableSendBetweenVehicleOnAndOff = function () {
     print('ABRP::Vehicle on and off topics subscribed\n');
 };
 
-const disableSendBetweenVehicleOnAndOff = function () {
+const disableAutoRoute = function () {
     if (vehicleOnSubscription) {
         PubSub.unsubscribe(vehicleOnSubscription);
         vehicleOnSubscription = null;
@@ -237,18 +234,17 @@ const disableSendBetweenVehicleOnAndOff = function () {
     print('ABRP::Vehicle on and off topics unsubscribed\n');
 };
 
-const showTelemetry = function () {
-    print(JSON.stringify(getTelemetry(), null, 4));
+const info = function () {
+    unloadConfig();
+    print('ABRP::Telemetry ' + JSON.stringify(getTelemetry(), null, 4));
 };
 
-exports.loadConfig = loadConfig;
-exports.unloadConfig = unloadConfig;
 exports.resetConfig = resetConfig;
 exports.startRoute = startRoute;
 exports.endRoute = endRoute;
-exports.enableSendBetweenVehicleOnAndOff = enableSendBetweenVehicleOnAndOff;
-exports.disableSendBetweenVehicleOnAndOff = disableSendBetweenVehicleOnAndOff;
+exports.enableAutoRoute = enableAutoRoute;
+exports.disableAutoRoute = disableAutoRoute;
 exports.sendTelemetry = sendTelemetry;
-exports.showTelemetry = showTelemetry;
+exports.info = info;
 
 print('ABRP::module loaded');
