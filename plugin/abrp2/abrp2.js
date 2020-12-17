@@ -212,11 +212,17 @@ const endRoute = function () {
 
 const enableAutoRoute = function () {
     if (!vehicleOnSubscription) {
-        vehicleOnSubscription = PubSub.subscribe(topics.VehicleOn, startRoute);
+        vehicleOnSubscription = PubSub.subscribe(topics.VehicleOn, function () {
+            OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle on - starting route');
+            startRoute();
+        });
         print('ABRP::Vehicle on subscribed to\n');
     }
     if (!vehicleOffSubscription) {
-        vehicleOffSubscription = PubSub.subscribe(topics.VehicleOff, endRoute);
+        vehicleOffSubscription = PubSub.subscribe(topics.VehicleOff, function () {
+            OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle off - ending route');
+            endRoute();
+        });
         print('ABRP::Vehicle off subscribed to\n');
     }
     print('ABRP::Vehicle on and off topics subscribed\n');
