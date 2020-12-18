@@ -177,16 +177,14 @@ const sendTelemetry = function (forceAbrpUpdate) {
     }
 };
 
-const onTicker = function () {
-    sendTelemetry(false);
-};
-
 const startRoute = function () {
     try {
         unloadConfig();
         sendTelemetry(true);
         if (!tickerSubscription) {
-            tickerSubscription = PubSub.subscribe(topics.Ticker, onTicker);
+            tickerSubscription = PubSub.subscribe(topics.Ticker, function () {
+                sendTelemetry(false);
+            });
         }
         print('ABRP::Starting route - subscribed to ticker\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route started');
