@@ -72,7 +72,7 @@ var currentTelemetry = null;
 var configuration = null;
 
 const handleError = function (error, context) {
-    print('ABRP::' + context + ' error [' + JSON.stringify(error) + ']\n');
+    print(context + ' error [' + JSON.stringify(error) + ']\n');
     OvmsNotify.Raise('error', 'usr.abrp.status', context + ' error  - ' + error.message);
 };
 
@@ -81,7 +81,7 @@ const loadConfig = function () {
         configuration = Object.freeze(
             Object.assign({}, defaultConfiguration, OvmsConfig.GetValues('usr', 'abrp.'))
         );
-        print('ABRP::config ' + JSON.stringify(configuration, null, 4) + '\n');
+        print('Config ' + JSON.stringify(configuration, null, 4) + '\n');
     }
     return configuration;
 };
@@ -107,12 +107,12 @@ const updateAbrp = function (telemetry) {
         '&tlm=' +
         encodeURIComponent(JSON.stringify(telemetry));
 
-    print('ABRP::Sending to [' + url + ']\n');
+    print('Sending to [' + url + ']\n');
 
     HTTP.Request({
         url,
         done: function (resp) {
-            print('ABRP::HTTP response code [' + resp.statusCode + ']\n');
+            print('HTTP response code [' + resp.statusCode + ']\n');
         },
         fail: function (error) {
             handleError(error, 'HTTP request');
@@ -147,9 +147,7 @@ const isTelemetryValidAndHasChanged = function (previous, next) {
     if (next.soh + next.soc === 0) {
         // Taken from original sendlivedata2abrp.js
         // Sometimes the canbus is not readable, and abrp doesn't like 0 values
-        print(
-            'ABRP::Telemetry invalid, canbus not readable: reset module and then put motors on\n'
-        );
+        print('Telemetry invalid, canbus not readable: reset module and then put motors on\n');
         return false;
     }
 
@@ -157,7 +155,7 @@ const isTelemetryValidAndHasChanged = function (previous, next) {
         return accumulator || previous[key] != next[key];
     }, false);
 
-    print('ABRP::Telemetry changed [' + changed + ']\n');
+    print('Telemetry changed [' + changed + ']\n');
     return changed;
 };
 
@@ -186,7 +184,7 @@ const startRoute = function () {
                 sendTelemetry(false);
             });
         }
-        print('ABRP::Starting route - subscribed to ticker\n');
+        print('Starting route - subscribed to ticker\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route started');
     } catch (error) {
         handleError(error, 'Start route');
@@ -201,7 +199,7 @@ const endRoute = function () {
             PubSub.unsubscribe(tickerSubscription);
             tickerSubscription = null;
         }
-        print('ABRP::Ending route - unsubscribed from ticker\n');
+        print('Ending route - unsubscribed from ticker\n');
         OvmsNotify.Raise('info', 'usr.abrp.status', 'ABRP route ended');
     } catch (error) {
         handleError(error, 'End route');
@@ -214,16 +212,16 @@ const enableAutoRoute = function () {
             OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle on - starting route');
             startRoute();
         });
-        print('ABRP::Vehicle on subscribed to\n');
+        print('Vehicle on subscribed to\n');
     }
     if (!vehicleOffSubscription) {
         vehicleOffSubscription = PubSub.subscribe(topics.VehicleOff, function () {
             OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle off - ending route');
             endRoute();
         });
-        print('ABRP::Vehicle off subscribed to\n');
+        print('Vehicle off subscribed to\n');
     }
-    print('ABRP::Vehicle on and off topics subscribed\n');
+    print('Vehicle on and off topics subscribed\n');
 };
 
 const disableAutoRoute = function () {
@@ -235,12 +233,12 @@ const disableAutoRoute = function () {
         PubSub.unsubscribe(vehicleOffSubscription);
         vehicleOffSubscription = null;
     }
-    print('ABRP::Vehicle on and off topics unsubscribed\n');
+    print('Vehicle on and off topics unsubscribed\n');
 };
 
 const info = function () {
     unloadConfig();
-    print('ABRP::Telemetry ' + JSON.stringify(getTelemetry(), null, 4));
+    print('Telemetry ' + JSON.stringify(getTelemetry(), null, 4));
 };
 
 exports.resetConfig = resetConfig;
@@ -251,4 +249,4 @@ exports.disableAutoRoute = disableAutoRoute;
 exports.sendTelemetry = sendTelemetry;
 exports.info = info;
 
-print('ABRP::module loaded');
+print('Module loaded');
