@@ -7,8 +7,8 @@
  *  /!\ requires OVMS firmware version 3.2.008-147 minimum (for HTTP call)
  *
  * Version 2.0   2020    @biddster
- *
- *      TODO - too many side effects in this code. E.g. have to load config before calling getTelemetry. Need partials and some FP.
+ *  - Add autoSend
+ *  - Code cleanup
  *
  * Enable:
  *  - install at above path
@@ -17,12 +17,13 @@
  *  - script reload
  *
  * Usage:
- *  - script eval abrp.info()              => to display plugin config and vehicle data to be sent to abrp
- *  - script eval abrp.sendTelemetry(true) => send telemetry to ABRP. Argument is boolean, true to force the data to be sent, even if unchanged.
- *  - script eval abrp.startRoute()        => Start sending telemetry to ABRP every 60 seconds
- *  - script eval abrp.endRoute()          => Cease sending telemetry to ABRP
- *  - script eval abrp.enableAutoRoute()   => Automatically start sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
- *  - script eval abrp.disableAutoRoute()  => Disable automatically sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
+ *  - script eval abrp.info()          => to display vehicle data to be sent to abrp
+ *  - script eval abrp.onetime()       => to launch one time the request to abrp server
+ *  - script eval abrp.send(1)         => toggle send data to abrp
+ *  - script eval abrp.send(0)         => stop sending data
+ *  - script eval abrp.resetConfig()   => reset configuration to defaults
+ *  - script eval abrp.autoSend(1)     => Automatically start sending telemetry to ABRP when you turn the car on and stop when you turn the car off. You can add this to ovmsmain.js
+ *  - script eval abrp.autoSend(0)     => Disable automatically sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
  *
  * Version 1.3 updates:
  *  - Fix for rounding of fractional SOC causing abrp to report SOC off by 1
@@ -89,10 +90,6 @@ const loadConfig = function () {
 const unloadConfig = function () {
     // TODO fix this like version 1.x?
     configuration = null;
-};
-
-const resetConfig = function () {
-    OvmsConfig.Delete('usr', 'abrp');
 };
 
 const updateAbrp = function (telemetry) {
@@ -206,47 +203,55 @@ const endRoute = function () {
     }
 };
 
-const enableAutoRoute = function () {
-    if (!vehicleOnSubscription) {
-        vehicleOnSubscription = PubSub.subscribe(topics.VehicleOn, function () {
-            OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle on - starting route');
-            startRoute();
-        });
-        print('Vehicle on subscribed to\n');
-    }
-    if (!vehicleOffSubscription) {
-        vehicleOffSubscription = PubSub.subscribe(topics.VehicleOff, function () {
-            OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle off - ending route');
-            endRoute();
-        });
-        print('Vehicle off subscribed to\n');
-    }
-    print('Vehicle on and off topics subscribed\n');
+exports.onetime = function () {
+    sendTelemetry(true);
 };
 
-const disableAutoRoute = function () {
-    if (vehicleOnSubscription) {
-        PubSub.unsubscribe(vehicleOnSubscription);
-        vehicleOnSubscription = null;
-    }
-    if (vehicleOffSubscription) {
-        PubSub.unsubscribe(vehicleOffSubscription);
-        vehicleOffSubscription = null;
-    }
-    print('Vehicle on and off topics unsubscribed\n');
-};
-
-const info = function () {
+exports.info = function () {
     unloadConfig();
     print('Telemetry ' + JSON.stringify(getTelemetry(), null, 4));
 };
 
-exports.resetConfig = resetConfig;
-exports.startRoute = startRoute;
-exports.endRoute = endRoute;
-exports.enableAutoRoute = enableAutoRoute;
-exports.disableAutoRoute = disableAutoRoute;
-exports.sendTelemetry = sendTelemetry;
-exports.info = info;
+exports.resetConfig = function () {
+    OvmsConfig.Delete('usr', 'abrp');
+};
+
+exports.send = function (start) {
+    if (start) {
+        startRoute();
+    } else {
+        endRoute();
+    }
+};
+
+exports.autoSend = function (enable) {
+    if (enable) {
+        if (!vehicleOnSubscription) {
+            vehicleOnSubscription = PubSub.subscribe(topics.VehicleOn, function () {
+                OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle on - starting route');
+                startRoute();
+            });
+            print('Vehicle on subscribed to\n');
+        }
+        if (!vehicleOffSubscription) {
+            vehicleOffSubscription = PubSub.subscribe(topics.VehicleOff, function () {
+                OvmsNotify.Raise('info', 'usr.abrp.status', 'Vehicle off - ending route');
+                endRoute();
+            });
+            print('Vehicle off subscribed to\n');
+        }
+        print('Vehicle on and off topics subscribed\n');
+    } else {
+        if (vehicleOnSubscription) {
+            PubSub.unsubscribe(vehicleOnSubscription);
+            vehicleOnSubscription = null;
+        }
+        if (vehicleOffSubscription) {
+            PubSub.unsubscribe(vehicleOffSubscription);
+            vehicleOffSubscription = null;
+        }
+        print('Vehicle on and off topics unsubscribed\n');
+    }
+};
 
 print('Module loaded');
