@@ -109,7 +109,12 @@ const updateAbrp = function (telemetry) {
     HTTP.Request({
         url,
         done: function (resp) {
-            print('HTTP response code [' + resp.statusCode + ']\n');
+            if (resp.statusCode !== 200) {
+                handleError(
+                    new Error('Unexpected status code [' + resp.statusCode + ']'),
+                    'Http request'
+                );
+            }
         },
         fail: function (error) {
             handleError(error, 'HTTP request');
