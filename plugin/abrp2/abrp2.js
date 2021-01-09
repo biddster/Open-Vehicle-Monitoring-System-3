@@ -154,7 +154,7 @@ const isTelemetryValidAndHasChanged = function (previous, next) {
     }
 
     const changed = telemetryChangedIndicators.reduce(function (accumulator, key) {
-        return accumulator || previous[key] != next[key];
+        return accumulator || previous[key] !== next[key];
     }, false);
 
     print('Telemetry changed [' + changed + ']\n');
