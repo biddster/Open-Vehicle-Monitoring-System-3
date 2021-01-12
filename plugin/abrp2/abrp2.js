@@ -153,12 +153,12 @@ const isTelemetryValidAndHasChanged = function (previousTelemetry, nextTelemetry
         return false;
     }
 
-    const changed = telemetryChangedIndicators.find(function (indicator) {
+    const changed = telemetryChangedIndicators.some(function (indicator) {
         return previousTelemetry[indicator] !== nextTelemetry[indicator];
     });
 
-    print('Telemetry [' + changed + '] changed\n');
-    return !!changed;
+    print('Telemetry changed [' + changed + ']\n');
+    return changed;
 };
 
 const sendTelemetry = function (forceAbrpUpdate) {
