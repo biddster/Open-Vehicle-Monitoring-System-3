@@ -145,16 +145,16 @@ const getTelemetry = function () {
     };
 };
 
-const isTelemetryValidAndHasChanged = function (previous, next) {
-    if (next.soh + next.soc === 0) {
+const isTelemetryValidAndHasChanged = function (previousTelemetry, nextTelemetry) {
+    if (nextTelemetry.soh + nextTelemetry.soc === 0) {
         // Taken from original sendlivedata2abrp.js
         // Sometimes the canbus is not readable, and abrp doesn't like 0 values
         print('Telemetry invalid, canbus not readable: reset module and then put motors on\n');
         return false;
     }
 
-    const changed = telemetryChangedIndicators.reduce(function (accumulator, key) {
-        return accumulator || previous[key] !== next[key];
+    const changed = telemetryChangedIndicators.reduce(function (changed, indicator) {
+        return changed || previousTelemetry[indicator] !== nextTelemetry[indicator];
     }, false);
 
     print('Telemetry changed [' + changed + ']\n');
