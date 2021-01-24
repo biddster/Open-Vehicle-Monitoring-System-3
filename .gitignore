@@ -63,3 +63,6 @@ docs/build/
 
 #configs for Visual Studio Code
 .vscode/
+.history/
+
+node_modules/
