@@ -16,7 +16,7 @@ ABRP: abetterrouteplanner.com
 
   **New in version 1.2:** Your own parameters (car model, abrp token but also api-url) are now stored as config parameters, you can consult them using the shell with ``config list usr`` or modify with ``config set`` command.
 
-
+  **New in version 2.0** You can now enable automatic sending of telemetry to ABRP when you turn your car on and stop when you turn it off.
 
 .. contents::
     :depth: 3
@@ -89,6 +89,9 @@ With command lines in the OVMS android or iOS app, in the messages part:
   - ``script eval abrp.send(1)``        => toggle send data to abrp
   - ``script eval abrp.send(0)``        => stop sending data
   - ``script eval abrp.resetConfig()``  => reset configuration to defaults
+  - ``script eval abrp.resetConfig()``  => reset configuration to defaults
+  - ``script eval abrp.autoSend(1)``    => Automatically start sending telemetry to ABRP when you turn the car on and stop when you turn the car off. You can add this to ovmsmain.js
+  - ``script eval abrp.autoSend(0)``    => Disable automatically sending telemetry to ABRP when you turn the car on and stop when you turn the car off.
 
 Also in the messages part, configuration can be updated with:
   - ``config set usr abrp.car_model <value>``
