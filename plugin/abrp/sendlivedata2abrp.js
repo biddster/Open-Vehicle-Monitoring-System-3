@@ -210,9 +210,7 @@ const endRoute = function () {
     }
 };
 
-exports.onetime = function () {
-    sendTelemetry(true);
-};
+exports.onetime = sendTelemetry.bind(null, true);
 
 exports.info = function () {
     unloadConfig();
